@@ -10,6 +10,6 @@
 • ☁️ ক্লাউড সিঙ্ক সিস্টেম (নতুন!): হঠাৎ কারেন্ট চলে গেলে বা পিসি বন্ধ হয়ে গেলেও ডেটা হারানোর কোনো ভয় নেই! আপনার ডিউটি টাইম সরাসরি ক্লাউডে সেভ থাকবে।
 
 📥 ডাউনলোড লিংক (v1.0.5):
-[https://github.com/imtaen/duty-calculator/releases/download/1.0.4/DutyCalculator-Setup-1.0.4.exe](https://github.com/imtaen/duty-calculator/releases/download/1.0.5/DutyCalculator-Setup-1.0.5.exe)
+[[https://github.com/imtaen/duty-calculator/releases/download/1.0.4/DutyCalculator-Setup-1.0.4.exe](https://github.com/imtaen/duty-calculator/releases/download/1.0.5/DutyCalculator-Setup-1.0.5.exe](https://github.com/imtaen/duty-calculator/releases/tag/1.0.5))
 
 সবাই ট্রাই করে দেখতে পারেন কেমন হলো। অ্যাপটি ব্যবহারে কোনো ফিডব্যাক বা উন্নতির পরামর্শ থাকলে অবশ্যই আমাকে জানাবেন! 🙌
