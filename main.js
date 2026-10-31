@@ -1,21 +1,50 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const path = require('path');
 
-function createWindow () {
-  const win = new BrowserWindow({
-    width: 500,
-    height: 750,
-    resizable: true,
-    autoHideMenuBar: true,
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 460,
+    height: 820,
     webPreferences: {
-      nodeIntegration: true
-    }
+      nodeIntegration: true,
+      contextIsolation: false
+    },
+    autoHideMenuBar: true
   });
 
-  win.loadFile('index.html');
+  mainWindow.loadFile('index.html');
+
+  // অ্যাপ চালু হওয়ার সাথে সাথে আপডেট চেক করবে
+  mainWindow.once('ready-to-show', () => {
+    autoUpdater.checkForUpdatesAndNotify();
+  });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// --- Auto Updater Events ---
+autoUpdater.on('update-available', () => {
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'নতুন আপডেট পাওয়া গেছে',
+    message: 'অ্যাপটির নতুন সংস্করণ ডাউনলোড হচ্ছে। দয়া করে অপেক্ষা করুন।'
+  });
+});
+
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['রিস্টার্ট ও ইনস্টল করুন', 'পরে করুন'],
+    title: 'আপডেট প্রস্তুত',
+    message: 'নতুন আপডেট সফলভাবে ডাউনলোড হয়েছে। অ্যাপটি কি এখনই রিস্টার্ট করে ইনস্টল করতে চান?'
+  }).then(result => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
 });
