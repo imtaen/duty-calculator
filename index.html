@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="bn" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ডিউটি ট্র্যাকার - Duty Attendance Calculator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darker: '#0b0f19',
+                        cardBg: '#111827',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 select-none">
+
+    <!-- Toast Notification Container -->
+    <div id="toast" class="fixed top-5 z-50 flex items-center gap-2 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl border border-emerald-500 transform -translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        <span id="toastText" class="font-medium text-sm">সফল হয়েছে</span>
+    </div>
+
+    <!-- ==================== AUTH CONTAINER (LOGIN / REGISTER) ==================== -->
+    <div id="authContainer" class="w-full max-w-md bg-[#111827] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-12 -right-12 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-12 -left-12 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl"></div>
+
+        <div class="relative z-10 space-y-6">
+            <div class="text-center space-y-2">
+                <div class="inline-flex p-3.5 bg-sky-600 rounded-2xl text-white shadow-lg shadow-sky-600/30 mb-1">
+                    <i data-lucide="user-check" class="w-8 h-8"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-wide">ডিউটি ট্র্যাকার লগইন</h1>
+                <p id="authSubtitle" class="text-xs text-slate-400">আপনার অ্যাকাউন্টে লগইন অথবা রেজিস্ট্রেশন করুন</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="grid grid-cols-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+                <button type="button" id="tabLogin" onclick="switchAuthMode('login')" class="py-2.5 text-xs font-bold rounded-xl bg-sky-600 text-white shadow transition-all">লগইন</button>
+                <button type="button" id="tabRegister" onclick="switchAuthMode('register')" class="py-2.5 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all">নতুন অ্যাকাউন্ট</button>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="authError" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-xl text-xs font-medium"></div>
+
+            <!-- Auth Form -->
+            <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                
+                <!-- Secret Code Field (Only for Registration) -->
+                <div id="secretCodeGroup" class="hidden space-y-1.5">
+                    <label class="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="key" class="w-4 h-4"></i>
+                        অ্যাডমিন সিক্রেট কোড (Secret Code)
+                    </label>
+                    <input type="password" id="secretCodeInput" placeholder="অ্যাডমিন প্রদত্ত কোড দিন" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-white font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="mail" class="w-4 h-4 text-sky-400"></i>
+                        ইমেইল ঠিকানা
+                    </label>
+                    <input type="email" id="authEmail" required placeholder="example@gmail.com" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="lock" class="w-4 h-4 text-sky-400"></i>
+                        পাসওয়ার্ড
+                    </label>
+                    <input type="password" id="authPassword" required placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                </div>
+
+                <button type="submit" id="authSubmitBtn" class="w-full bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-sky-600/30 transition-all text-sm">
+                    সাইন ইন করুন
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP CONTAINER ==================== -->
+    <div id="appContainer" class="hidden w-full max-w-md space-y-4">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800/80 px-4 py-3 rounded-2xl shadow-xl">
+            <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-sky-600 rounded-xl text-white shadow-md shadow-sky-600/30">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-wide">ডিউটি ট্র্যাকার</h1>
+                    <p id="userEmailDisplay" class="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-[220px]"></p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all" title="থিম পরিবর্তন">
+                    <i data-lucide="sun" id="themeIcon" class="w-4 h-4"></i>
+                </button>
+                <button onclick="handleLogout()" class="p-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl transition-all border border-rose-500/30" title="লগআউট">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Action Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="startDutyNow()" class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white py-3.5 px-4 rounded-2xl font-bold shadow-lg shadow-emerald-600/20 transition-all text-sm">
+                <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                ডিউটি শুরু
+            </button>
+            <button type="button" onclick="endDutyNow()" class="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white py-3.5 px-4 rounded-2xl font-bold shadow-lg shadow-rose-600/20 transition-all text-sm">
+                <i data-lucide="square" class="w-4 h-4 fill-current"></i>
+                ডিউটি শেষ
+            </button>
+        </div>
+
+        <!-- Input Card -->
+        <div class="bg-slate-900 border border-slate-800/80 rounded-3xl p-5 space-y-4 shadow-xl">
+          
+            <!-- Date Picker with Today Button -->
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="calendar" class="w-4 h-4 text-sky-400"></i>
+                        ON DUTY তারিখ (START DATE)
+                    </label>
+                    <button type="button" onclick="setTodayDate()" class="text-xs font-semibold text-sky-400 hover:text-sky-300 transition-all flex items-center gap-1 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1 rounded-lg border border-sky-500/30">
+                        আজকের তারিখ
+                    </button>
+                </div>
+                <input type="date" id="dutyDateInput" class="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+            </div>
+
+            <!-- Time Inputs -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <i data-lucide="log-in" class="w-4 h-4 text-emerald-400"></i>
+                        ON DUTY (শুরু)
+                    </label>
+                    <input type="time" id="onDutyInput" class="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-4 h-4 text-rose-400"></i>
+                        OFF DUTY (শেষ)
+                    </label>
+                    <input type="time" id="offDutyInput" class="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-2.5 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                </div>
+            </div>
+
+            <!-- Break / Code Zero Input -->
+            <div>
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="coffee" class="w-4 h-4 text-amber-400"></i>
+                    CODE ZERO (বিরতি - মিনিট)
+                </label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="breakInput" value="0" min="0" class="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+                    <button type="button" onclick="setBreak(0)" class="break-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300">0m</button>
+                    <button type="button" onclick="setBreak(15)" class="break-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300">15m</button>
+                    <button type="button" onclick="setBreak(20)" class="break-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300">20m</button>
+                    <button type="button" onclick="setBreak(60)" class="break-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-300">60m</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Output Preview Card -->
+        <div class="bg-slate-900 border border-slate-800/80 rounded-3xl p-5 space-y-3 shadow-xl">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5 text-sky-400"></i>
+                    আউটপুট রেজাল্ট
+                </span>
+                <span id="nightShiftBadge" class="hidden items-center gap-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                    <i data-lucide="moon" class="w-3.5 h-3.5"></i>
+                    নাইট শিফট
+                </span>
+            </div>
+
+            <div id="outputBox" class="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 font-mono text-xs sm:text-sm leading-relaxed text-sky-400 whitespace-pre-wrap select-all min-h-[110px]">
+                সময় ও তারিখ সঠিকভাবে দিন...
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+                <button type="button" onclick="copyOutputText()" class="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3 rounded-xl font-bold transition-all shadow-md text-sm">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    কপি করুন (Copy)
+                </button>
+                <button type="button" onclick="saveRecordToCloud()" class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 py-3 rounded-xl font-bold transition-all text-sm">
+                    <i data-lucide="cloud" class="w-4 h-4 text-emerald-400"></i>
+                    ক্লাউডে সেভ করুন
+                </button>
+            </div>
+        </div>
+
+        <!-- History Records Section -->
+        <div class="bg-slate-900 border border-slate-800/80 rounded-3xl p-5 shadow-xl space-y-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="history" class="w-4 h-4 text-sky-400"></i>
+                    <h2 class="text-sm font-bold text-slate-200">পূর্ববর্তী রেকর্ডসমূহ</h2>
+                </div>
+                <span class="text-[10px] text-slate-400">ইউজার ক্লাউড সিঙ্কড</span>
+            </div>
+            <div id="historyContainer" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                <p class="text-center py-6 text-xs text-slate-500">কোনো পূর্ববর্তী রেকর্ড পাওয়া যায়নি</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBv0-7nKs_EyI7m-Wvj2-WSzMFoAPzlALA",
+            authDomain: "duty-calculator-ed9de.firebaseapp.com",
+            projectId: "duty-calculator-ed9de",
+            storageBucket: "duty-calculator-ed9de.firebasestorage.app",
+            messagingSenderId: "664179111779",
+            appId: "1:664179111779:web:fca78c04bba6a637eb0556"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- Admin Secret Key for Registration ---
+        const ADMIN_REGISTRATION_SECRET = "DUTY2025";
+
+        // --- DOM Elements ---
+        const authContainer = document.getElementById('authContainer');
+        const appContainer = document.getElementById('appContainer');
+        const authForm = document.getElementById('authForm');
+        const authEmailInput = document.getElementById('authEmail');
+        const authPasswordInput = document.getElementById('authPassword');
+        const secretCodeGroup = document.getElementById('secretCodeGroup');
+        const secretCodeInput = document.getElementById('secretCodeInput');
+        const authError = document.getElementById('authError');
+        const authSubmitBtn = document.getElementById('authSubmitBtn');
+        const authSubtitle = document.getElementById('authSubtitle');
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const userEmailDisplay = document.getElementById('userEmailDisplay');
+
+        const dutyDateInput = document.getElementById('dutyDateInput');
+        const onDutyInput = document.getElementById('onDutyInput');
+        const offDutyInput = document.getElementById('offDutyInput');
+        const breakInput = document.getElementById('breakInput');
+        const outputBox = document.getElementById('outputBox');
+        const nightShiftBadge = document.getElementById('nightShiftBadge');
+        const historyContainer = document.getElementById('historyContainer');
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toastText');
+
+        let isLoginMode = true;
+        let currentUser = null;
+        let unsubscribeDraft = null;
+        let unsubscribeHistory = null;
+        let isInitialDraftLoad = true;
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- Auth Mode Switching ---
+        function switchAuthMode(mode) {
+            isLoginMode = (mode === 'login');
+            authError.classList.add('hidden');
+            if (isLoginMode) {
+                tabLogin.className = "py-2.5 text-xs font-bold rounded-xl bg-sky-600 text-white shadow transition-all";
+                tabRegister.className = "py-2.5 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all";
+                secretCodeGroup.classList.add('hidden');
+                secretCodeInput.removeAttribute('required');
+                authSubmitBtn.textContent = "সাইন ইন করুন";
+                authSubtitle.textContent = "আপনার অ্যাকাউন্টে লগইন করুন";
+            } else {
+                tabRegister.className = "py-2.5 text-xs font-bold rounded-xl bg-sky-600 text-white shadow transition-all";
+                tabLogin.className = "py-2.5 text-xs font-bold rounded-xl text-slate-400 hover:text-white transition-all";
+                secretCodeGroup.classList.remove('hidden');
+                secretCodeInput.setAttribute('required', 'true');
+                authSubmitBtn.textContent = "নতুন অ্যাকাউন্ট তৈরি করুন";
+                authSubtitle.textContent = "সিক্রেট কোড দিয়ে নতুন অ্যাকাউন্ট খুলুন";
+            }
+        }
+
+        // --- Email Validation Check ---
+        function isValidEmail(email) {
+            const commonTypos = ['gmaol.com', 'gmai.com', 'gamil.com', 'yaho.com', 'hotmial.com'];
+            const domain = email.split('@')[1]?.toLowerCase();
+            if (commonTypos.includes(domain)) return false;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // --- Handle Authentication Submit ---
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            authError.classList.add('hidden');
+            const email = authEmailInput.value.trim();
+            const password = authPasswordInput.value;
+
+            if (!isValidEmail(email)) {
+                showAuthError("ভুল বা অসম্পূর্ণ ইমেইল ডোমেন! দয়া করে সঠিক ইমেইল দিন।");
+                return;
+            }
+
+            if (!isLoginMode) {
+                const secret = secretCodeInput.value.trim();
+                if (secret !== ADMIN_REGISTRATION_SECRET) {
+                    showAuthError("অ্যাডমিন সিক্রেট কোড সঠিক নয়! অ্যাকাউন্ট খোলা যায়নি।");
+                    return;
+                }
+            }
+
+            try {
+                authSubmitBtn.disabled = true;
+                if (isLoginMode) {
+                    await auth.signInWithEmailAndPassword(email, password);
+                } else {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.sendEmailVerification();
+                    showToast("ভেরিফিকেশন ইমেইল পাঠানো হয়েছে। ইনবক্স চেক করুন।");
+                }
+            } catch (err) {
+                let msg = err.message;
+                if (err.code === 'auth/invalid-credential') msg = "ইমেইল অথবা পাসওয়ার্ড ভুল হয়েছে।";
+                else if (err.code === 'auth/email-already-in-use') msg = "এই ইমেইল দিয়ে ইতিমধ্যেই অ্যাকাউন্ট রয়েছে।";
+                else if (err.code === 'auth/weak-password') msg = "পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে।";
+                showAuthError("সমস্যা হয়েছে: " + msg);
+            } finally {
+                authSubmitBtn.disabled = false;
+            }
+        }
+
+        function showAuthError(msg) {
+            authError.textContent = msg;
+            authError.classList.remove('hidden');
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => {
+                if (unsubscribeDraft) unsubscribeDraft();
+                if (unsubscribeHistory) unsubscribeHistory();
+                showToast("লগআউট সফল হয়েছে");
+            });
+        }
+
+        // --- Firebase Auth State Listener ---
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                authContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                userEmailDisplay.textContent = user.email;
+                isInitialDraftLoad = true;
+                listenToUserDraft();
+                listenToUserHistory();
+            } else {
+                appContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                authForm.reset();
+            }
+        });
+
+        // --- User-Isolated Cloud Database Actions ---
+        function getUserDraftRef() {
+            if (!currentUser) return null;
+            return db.collection('users').doc(currentUser.uid).collection('draft').doc('session');
+        }
+
+        function getUserHistoryCol() {
+            if (!currentUser) return null;
+            return db.collection('users').doc(currentUser.uid).collection('duty_records');
+        }
+
+        function listenToUserDraft() {
+            const draftRef = getUserDraftRef();
+            if (!draftRef) return;
+
+            unsubscribeDraft = draftRef.onSnapshot((docSnap) => {
+                if (docSnap.exists) {
+                    const data = docSnap.data();
+                    if (data.date) {
+                        dutyDateInput.value = data.date;
+                    } else if (isInitialDraftLoad) {
+                        dutyDateInput.value = getTodayYYYYMMDD();
+                    }
+
+                    if (data.onTime && data.onTime !== onDutyInput.value) onDutyInput.value = data.onTime;
+                    if (data.offTime && data.offTime !== offDutyInput.value) offDutyInput.value = data.offTime;
+                    if (data.breakMinutes !== undefined && String(data.breakMinutes) !== breakInput.value) {
+                        breakInput.value = data.breakMinutes;
+                    }
+                    calculateDuty();
+                    isInitialDraftLoad = false;
+                } else {
+                    if (isInitialDraftLoad) {
+                        dutyDateInput.value = getTodayYYYYMMDD();
+                        onDutyInput.value = "19:00";
+                        offDutyInput.value = "01:00";
+                        breakInput.value = "0";
+                        calculateDuty();
+                        isInitialDraftLoad = false;
+                    }
+                }
+            }, err => console.log('Draft listener error:', err));
+        }
+
+        function listenToUserHistory() {
+            const historyCol = getUserHistoryCol();
+            if (!historyCol) return;
+
+            const q = historyCol.orderBy('createdAt', 'desc').limit(25);
+            unsubscribeHistory = q.onSnapshot((snapshot) => {
+                let html = '';
+                if (snapshot.empty) {
+                    html = `<p class="text-center py-6 text-xs text-slate-500">কোনো পূর্ববর্তী রেকর্ড পাওয়া যায়নি</p>`;
+                } else {
+                    snapshot.forEach((docSnap) => {
+                        const item = docSnap.data();
+                        const id = docSnap.id;
+                        html += `
+                            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-xl flex justify-between items-start gap-2">
+                                <pre class="font-mono text-xs text-slate-300 whitespace-pre-wrap flex-1">${escapeHtml(item.text)}</pre>
+                                <div class="flex gap-1">
+                                    <button onclick="copySpecificText(\`${escapeHtml(item.text)}\`)" class="p-1.5 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded-lg transition-all" title="কপি করুন">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                    <button onclick="deleteRecord('${id}')" class="p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg transition-all" title="মুছুন">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                historyContainer.innerHTML = html;
+                lucide.createIcons();
+            }, err => console.log('History error:', err));
+        }
+
+        function saveActiveDraftToCloud(date, onTime, offTime, breakMins) {
+            const draftRef = getUserDraftRef();
+            if (!draftRef) return;
+            draftRef.set({
+                date: date,
+                onTime: onTime,
+                offTime: offTime,
+                breakMinutes: parseInt(breakMins, 10) || 0,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(err => console.log('Draft save error:', err));
+        }
+
+        // --- Helper Utilities ---
+        function getTodayYYYYMMDD() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function setTodayDate() {
+            const today = getTodayYYYYMMDD();
+            dutyDateInput.value = today;
+            calculateDuty();
+            saveActiveDraftToCloud(today, onDutyInput.value, offDutyInput.value, breakInput.value);
+            showToast("আজকের তারিখ সেট করা হয়েছে");
+        }
+
+        function getCurrentTime24() {
+            const now = new Date();
+            return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        }
+
+        function setBreak(mins) {
+            breakInput.value = mins;
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, offDutyInput.value, mins);
+        }
+
+        function startDutyNow() {
+            const time = getCurrentTime24();
+            const today = getTodayYYYYMMDD();
+            onDutyInput.value = time;
+            dutyDateInput.value = today;
+            calculateDuty();
+            saveActiveDraftToCloud(today, time, offDutyInput.value, breakInput.value);
+            showToast("ডিউটি শুরু ও আজকের তারিখ রেকর্ড হয়েছে");
+        }
+
+        function endDutyNow() {
+            const time = getCurrentTime24();
+            offDutyInput.value = time;
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, time, breakInput.value);
+            showToast("ডিউটি শেষ রেকর্ড হয়েছে");
+        }
+
+        // --- Calculation Logic ---
+        function formatDisplayDate(dateStr) {
+            if (!dateStr || !dateStr.includes('-')) return dateStr;
+            const [y, m, d] = dateStr.split('-');
+            return `${d}-${m}-${y}`;
+        }
+
+        function formatTime12Hour(time24) {
+            if (!time24 || !time24.includes(':')) return time24;
+            let [hours, minutes] = time24.split(':').map(Number);
+            const period = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
+        }
+
+        function calculateDuty() {
+            const dateVal = dutyDateInput.value;
+            const onVal = onDutyInput.value;
+            const offVal = offDutyInput.value;
+            const breakVal = parseInt(breakInput.value, 10) || 0;
+
+            if (!dateVal || !onVal || !offVal) {
+                outputBox.textContent = "সময় ও তারিখ সঠিকভাবে দিন...";
+                nightShiftBadge.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const start = new Date(`${dateVal}T${onVal}:00`);
+                let end = new Date(`${dateVal}T${offVal}:00`);
+
+                let night = false;
+                if (end <= start) {
+                    end.setDate(end.getDate() + 1);
+                    night = true;
+                }
+
+                if (night) nightShiftBadge.classList.remove('hidden');
+                else nightShiftBadge.classList.add('hidden');
+
+                const diffMs = end - start;
+                const totalMins = Math.floor(diffMs / (1000 * 60));
+                const netMins = Math.max(0, totalMins - breakVal);
+
+                const hours = Math.floor(netMins / 60);
+                const remainingMins = netMins % 60;
+
+                const result = `Date : ${formatDisplayDate(dateVal)}\n\nOn Duty : ${formatTime12Hour(onVal)}\nOff Duty : ${formatTime12Hour(offVal)}\nCode Zero : ${String(breakVal).padStart(2, '0')} Mins\n\nTotal Duty : ${hours} Hours ${String(remainingMins).padStart(2, '0')} Minutes`;
+
+                outputBox.textContent = result;
+            } catch (e) {
+                outputBox.textContent = "গণনা করতে সমস্যা হয়েছে!";
+            }
+        }
+
+        // Event Listeners for inputs to sync automatically
+        dutyDateInput.addEventListener('change', () => {
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, offDutyInput.value, breakInput.value);
+        });
+        onDutyInput.addEventListener('change', () => {
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, offDutyInput.value, breakInput.value);
+        });
+        offDutyInput.addEventListener('change', () => {
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, offDutyInput.value, breakInput.value);
+        });
+        breakInput.addEventListener('input', () => {
+            calculateDuty();
+            saveActiveDraftToCloud(dutyDateInput.value, onDutyInput.value, offDutyInput.value, breakInput.value);
+        });
+
+        // --- Cloud Save & History Actions ---
+        async function saveRecordToCloud() {
+            const text = outputBox.textContent;
+            if (!text || text.includes('সঠিকভাবে দিন')) {
+                showToast("সেভ করার জন্য সঠিক ডাটা নেই!");
+                return;
+            }
+            const historyCol = getUserHistoryCol();
+            if (!historyCol) return;
+
+            try {
+                await historyCol.add({
+                    text: text,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast("রেকর্ডটি ক্লাউডে সফলভাবে সেভ হয়েছে");
+            } catch (err) {
+                showToast("ক্লাউডে সেভ করা যায়নি");
+            }
+        }
+
+        async function deleteRecord(id) {
+            const historyCol = getUserHistoryCol();
+            if (!historyCol) return;
+            try {
+                await historyCol.doc(id).delete();
+                showToast("রেকর্ডটি মুছে ফেলা হয়েছে");
+            } catch (err) {
+                showToast("মুছে ফেলা সম্ভব হয়নি");
+            }
+        }
+
+        // --- Copy Utilities ---
+        function copyOutputText() {
+            copySpecificText(outputBox.textContent);
+        }
+
+        function copySpecificText(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => showToast("কপি করা হয়েছে!")).catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast("কপি করা হয়েছে!");
+            } catch (e) {
+                showToast("কপি ব্যর্থ হয়েছে");
+            }
+            document.body.removeChild(ta);
+        }
+
+        function showToast(msg) {
+            toastText.textContent = msg;
+            toast.classList.remove('-translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('-translate-y-24', 'opacity-0');
+            }, 2500);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // --- Theme Toggle ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.setAttribute('data-lucide', 'moon');
+            } else {
+                html.classList.add('dark');
+                icon.setAttribute('data-lucide', 'sun');
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
