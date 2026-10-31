@@ -1,6 +1,6 @@
 {
 "name": "duty-calculator",
-"version": "1.0.2",
+"version": "1.0.3",
 "description": "Duty Attendance Calculator",
 "main": "main.js",
 "scripts": {
